@@ -1,0 +1,10 @@
+{
+  "appId": "com.mviero.portlandnoise",
+  "appName": "PDX Noise Report",
+  "webDir": "www",
+  "plugins": {
+    "Geolocation": {
+      "permissions": ["location"]
+    }
+  }
+}

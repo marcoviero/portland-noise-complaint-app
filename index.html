@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1c1c1e">
+  <title>PDX Noise Report</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="app">
+  <!-- Status bar spacer (Capacitor handles safe-area via CSS env()) -->
+  <div id="status-bar-spacer"></div>
+
+  <!-- Header -->
+  <div id="header">
+    <h1>PDX Noise Report</h1>
+  </div>
+
+  <!-- Tab bar -->
+  <div id="tab-bar">
+    <button class="tab-btn active" data-tab="complaint">
+      <span class="tab-icon">📋</span>
+      <span>Complaint</span>
+    </button>
+    <button class="tab-btn" data-tab="profile">
+      <span class="tab-icon">👤</span>
+      <span>My Profile</span>
+    </button>
+  </div>
+
+  <!-- Scrollable content -->
+  <div id="content">
+    <div id="view-complaint" class="view active"></div>
+    <div id="view-profile" class="view"></div>
+  </div>
+</div>
+
+<!-- Reference card overlay -->
+<div id="ref-card-overlay">
+  <div id="ref-card">
+    <h2>Ready to File</h2>
+    <div id="ref-content"></div>
+    <div class="ref-card-actions">
+      <button id="copy-btn">Copy All</button>
+      <button id="open-form-btn">Open Form ↗</button>
+    </div>
+    <button id="close-ref-btn" style="width:100%;margin-top:10px;padding:13px;border:none;border-radius:10px;background:var(--bg-tertiary);color:var(--text-secondary);font-family:inherit;font-size:15px;cursor:pointer">Dismiss</button>
+  </div>
+</div>
+
+<!-- Time picker overlay -->
+<div id="time-picker-overlay">
+  <div id="time-picker-card">
+    <h3>Adjust Time</h3>
+    <div class="time-adjust-row">
+      <button class="time-offset-btn" data-offset="-30">−30 min</button>
+      <button class="time-offset-btn" data-offset="-15">−15 min</button>
+      <button class="time-offset-btn" data-offset="0">Now</button>
+      <button class="time-offset-btn" data-offset="15">+15 min</button>
+    </div>
+    <input type="time" id="time-input">
+    <button id="time-confirm-btn">Done</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="js/app.js"></script>
+<script>
+  // Bind time picker after DOM is ready (it's in a static overlay, not rebuilt)
+  document.addEventListener('DOMContentLoaded', () => {
+    // bindTimePicker is defined in app.js but called here after overlay exists
+    if (typeof bindTimePicker === 'function') bindTimePicker();
+  });
+</script>
+
+</body>
+</html>
