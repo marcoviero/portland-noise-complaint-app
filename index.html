@@ -9,6 +9,8 @@
   <title>PDX Noise Report</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -68,15 +70,32 @@
   </div>
 </div>
 
+<!-- Location picker overlay (full screen) -->
+<div id="location-picker-overlay">
+  <div id="location-picker-sheet">
+    <div id="lp-header">
+      <button id="lp-cancel">Cancel</button>
+      <h3>Set Location</h3>
+      <button id="lp-done">Done</button>
+    </div>
+    <div id="lp-search-row">
+      <input type="text" id="lp-address-input" placeholder="Search address in Portland…" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button id="lp-search-btn">Search</button>
+    </div>
+    <div id="lp-map"></div>
+    <div id="lp-address-display">Tap the map or drag the pin to set location</div>
+    <button id="lp-gps-btn">📍 Use My GPS</button>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
 
 <script src="js/app.js"></script>
 <script>
-  // Bind time picker after DOM is ready (it's in a static overlay, not rebuilt)
   document.addEventListener('DOMContentLoaded', () => {
-    // bindTimePicker is defined in app.js but called here after overlay exists
     if (typeof bindTimePicker === 'function') bindTimePicker();
+    if (typeof bindLocationPicker === 'function') bindLocationPicker();
   });
 </script>
 

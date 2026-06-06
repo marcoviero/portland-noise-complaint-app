@@ -142,21 +142,17 @@ async function reverseGeocode(lat, lng) {
 function renderLocationRow() {
   const disp = document.getElementById('location-display');
   const coords = document.getElementById('gps-coords');
-  const retry = document.getElementById('retry-gps');
   if (!disp) return;
 
   if (state.locationStatus === 'loading') {
-    disp.textContent = 'Detecting location…';
+    disp.textContent = 'Detecting…';
     coords.textContent = '';
-    retry.style.display = 'none';
   } else if (state.locationStatus === 'ok' && state.location) {
-    disp.textContent = state.location.address || 'Location detected';
-    coords.textContent = `${state.location.lat.toFixed(5)}°N, ${state.location.lng.toFixed(5)}°W`;
-    retry.style.display = 'none';
+    disp.textContent = state.location.address || 'Location set';
+    coords.textContent = `${state.location.lat.toFixed(5)}°N, ${Math.abs(state.location.lng).toFixed(5)}°W`;
   } else {
-    disp.textContent = 'Location unavailable';
+    disp.textContent = 'Tap to set location';
     coords.textContent = '';
-    retry.style.display = 'inline';
   }
 }
 
@@ -196,12 +192,14 @@ function buildComplaintView() {
 
     <div class="section-header">Location &amp; Time</div>
     <div class="card">
-      <div class="card-row">
+      <div class="card-row tappable" id="location-row">
         <span class="row-label">Location</span>
-        <div style="text-align:right">
-          <div id="location-display" style="font-size:14px;color:var(--text-secondary);max-width:200px">Detecting…</div>
-          <div id="gps-coords" style="font-size:11px;color:var(--text-tertiary);margin-top:2px"></div>
-          <button class="retry-btn" id="retry-gps" style="display:none">Retry</button>
+        <div style="text-align:right;display:flex;align-items:center;gap:6px">
+          <div>
+            <div id="location-display" style="font-size:14px;color:var(--text-secondary);max-width:180px">Detecting…</div>
+            <div id="gps-coords" style="font-size:11px;color:var(--text-tertiary);margin-top:2px"></div>
+          </div>
+          <span style="color:var(--text-tertiary);font-size:20px;line-height:1;flex-shrink:0">›</span>
         </div>
       </div>
       <div class="card-row">
@@ -268,8 +266,8 @@ function bindComplaintEvents() {
   });
   document.getElementById('count-minus').disabled = state.count <= 1;
 
-  // Retry GPS
-  document.getElementById('retry-gps').addEventListener('click', getLocation);
+  // Location row → open picker
+  document.getElementById('location-row').addEventListener('click', openLocationPicker);
 
   // Time tap
   document.getElementById('time-display').addEventListener('click', openTimePicker);
@@ -327,6 +325,144 @@ function bindTimePicker() {
     document.getElementById('date-display').textContent = formatDate(state.complaintTime);
     document.getElementById('time-picker-overlay').classList.remove('visible');
   });
+}
+
+// ── Location picker ────────────────────────────────────────────────────────
+
+const PORTLAND_CENTER = [45.5051, -122.6750];
+
+let locMap = null;
+let locMarker = null;
+let pickerLocation = null;
+
+function openLocationPicker() {
+  const overlay = document.getElementById('location-picker-overlay');
+  overlay.classList.add('visible');
+  document.getElementById('lp-address-input').value = '';
+
+  const center = state.location
+    ? [state.location.lat, state.location.lng]
+    : PORTLAND_CENTER;
+
+  pickerLocation = state.location ? { ...state.location } : null;
+
+  if (!locMap) {
+    locMap = L.map('lp-map', { zoomControl: true }).setView(center, 17);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20
+    }).addTo(locMap);
+
+    locMarker = L.marker(center, { draggable: true }).addTo(locMap);
+
+    locMarker.on('dragend', async () => {
+      const pos = locMarker.getLatLng();
+      updatePickerAddressDisplay('Looking up address…', null, null);
+      const address = await reverseGeocode(pos.lat, pos.lng);
+      pickerLocation = { lat: pos.lat, lng: pos.lng, address };
+      updatePickerAddressDisplay(address, pos.lat, pos.lng);
+    });
+
+    locMap.on('click', async e => {
+      locMarker.setLatLng(e.latlng);
+      updatePickerAddressDisplay('Looking up address…', null, null);
+      const address = await reverseGeocode(e.latlng.lat, e.latlng.lng);
+      pickerLocation = { lat: e.latlng.lat, lng: e.latlng.lng, address };
+      updatePickerAddressDisplay(address, e.latlng.lat, e.latlng.lng);
+    });
+  } else {
+    locMap.setView(center, 17);
+    locMarker.setLatLng(center);
+  }
+
+  if (pickerLocation) {
+    updatePickerAddressDisplay(pickerLocation.address, pickerLocation.lat, pickerLocation.lng);
+  } else {
+    updatePickerAddressDisplay(null, null, null);
+  }
+
+  setTimeout(() => { if (locMap) locMap.invalidateSize(); }, 120);
+}
+
+function updatePickerAddressDisplay(address, lat, lng) {
+  const el = document.getElementById('lp-address-display');
+  if (!el) return;
+  if (!address && lat === null) {
+    el.textContent = address || 'Tap the map or drag the pin to set location';
+    return;
+  }
+  const coordStr = (lat !== null && lng !== null)
+    ? `${lat.toFixed(5)}°N, ${Math.abs(lng).toFixed(5)}°W`
+    : '';
+  el.innerHTML = address
+    ? `<strong>${address}</strong>${coordStr ? `<br><span style="font-size:12px;color:var(--text-tertiary)">${coordStr}</span>` : ''}`
+    : coordStr || 'Tap the map or drag the pin to set location';
+}
+
+function bindLocationPicker() {
+  document.getElementById('lp-cancel').addEventListener('click', () => {
+    document.getElementById('location-picker-overlay').classList.remove('visible');
+  });
+
+  document.getElementById('lp-done').addEventListener('click', () => {
+    if (pickerLocation) {
+      state.location = { ...pickerLocation };
+      state.locationStatus = 'ok';
+      renderLocationRow();
+    }
+    document.getElementById('location-picker-overlay').classList.remove('visible');
+  });
+
+  document.getElementById('lp-gps-btn').addEventListener('click', () => {
+    updatePickerAddressDisplay('Getting GPS location…', null, null);
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        updatePickerAddressDisplay('Looking up address…', null, null);
+        const address = await reverseGeocode(lat, lng);
+        pickerLocation = { lat, lng, address };
+        updatePickerAddressDisplay(address, lat, lng);
+        if (locMap && locMarker) {
+          locMap.setView([lat, lng], 17);
+          locMarker.setLatLng([lat, lng]);
+        }
+      },
+      () => { updatePickerAddressDisplay('GPS unavailable. Tap map to place pin manually.', null, null); },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+
+  document.getElementById('lp-search-btn').addEventListener('click', searchAddress);
+  document.getElementById('lp-address-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.target.blur(); searchAddress(); }
+  });
+}
+
+async function searchAddress() {
+  const query = document.getElementById('lp-address-input').value.trim();
+  if (!query) return;
+  updatePickerAddressDisplay('Searching…', null, null);
+  try {
+    const q = encodeURIComponent(query.includes('Portland') ? query : query + ', Portland, OR');
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    const data = await res.json();
+    if (!data.length) {
+      updatePickerAddressDisplay('Address not found. Try a different search.', null, null);
+      return;
+    }
+    const lat = parseFloat(data[0].lat), lng = parseFloat(data[0].lon);
+    const address = await reverseGeocode(lat, lng);
+    pickerLocation = { lat, lng, address };
+    updatePickerAddressDisplay(address, lat, lng);
+    if (locMap && locMarker) {
+      locMap.setView([lat, lng], 17);
+      locMarker.setLatLng([lat, lng]);
+    }
+  } catch {
+    updatePickerAddressDisplay('Search failed. Check your connection.', null, null);
+  }
 }
 
 // ── Build profile view ─────────────────────────────────────────────────────
