@@ -28,6 +28,24 @@ const RESIDENT_OPTIONS = [
   { value: 'business',        label: 'Business operator in Portland' },
 ];
 
+// ── Capacitor WebForm plugin (native WKWebView for in-app form) ────────────
+
+let WebFormPlugin = null;
+
+function getWebFormPlugin() {
+  if (!WebFormPlugin && window.Capacitor && window.Capacitor.registerPlugin) {
+    WebFormPlugin = window.Capacitor.registerPlugin('WebFormPlugin', {
+      web: {
+        openForm: () => {
+          window.open('https://www.portland.gov/ppd/noise/noise-concerns', '_blank');
+          return Promise.resolve();
+        }
+      }
+    });
+  }
+  return WebFormPlugin;
+}
+
 // ── Profile persistence ────────────────────────────────────────────────────
 
 function loadProfile() {
@@ -235,7 +253,7 @@ function buildComplaintView() {
       <textarea class="notes-area" id="notes-area" placeholder="Additional details about the violation…" rows="3"></textarea>
     </div>
 
-    <button id="submit-btn">Open Official Complaint Form ↗</button>
+    <button id="submit-btn">Submit Complaint</button>
   `;
 
   bindComplaintEvents();
@@ -280,7 +298,7 @@ function bindComplaintEvents() {
   document.getElementById('notes-area').addEventListener('input', e => { state.notes = e.target.value; });
 
   // Submit
-  document.getElementById('submit-btn').addEventListener('click', showRefCard);
+  document.getElementById('submit-btn').addEventListener('click', submitComplaint);
 }
 
 // ── Time picker ────────────────────────────────────────────────────────────
@@ -559,6 +577,46 @@ function showProfileSaved() {
   if (!el) return;
   el.style.opacity = '1';
   setTimeout(() => { el.style.opacity = '0'; }, 1500);
+}
+
+// ── Submit complaint via native WKWebView ──────────────────────────────────
+
+async function submitComplaint() {
+  const plugin = getWebFormPlugin();
+  const loc = state.location;
+  const p = state.profile;
+
+  const data = {
+    firstName:       p.firstName || '',
+    lastName:        p.lastName  || '',
+    email:           p.email     || '',
+    phone:           p.phone     || '',
+    address:         p.address   || '',
+    locationAddress: loc ? (loc.address || '') : '',
+    locationLat:     loc ? loc.lat : 0,
+    locationLng:     loc ? loc.lng : 0,
+    count:           state.count,
+    complaintType:   state.complaintType,
+    equipment:       equipmentLabel(),
+    date:            state.complaintTime.toISOString().split('T')[0],
+    time:            state.complaintTime.getHours().toString().padStart(2,'0') + ':' +
+                     state.complaintTime.getMinutes().toString().padStart(2,'0'),
+    notes:           state.notes,
+    formal:          state.formal,
+    anonymous:       state.anonymous,
+  };
+
+  if (plugin) {
+    try {
+      await plugin.openForm({ data });
+    } catch (e) {
+      console.error('WebFormPlugin error:', e);
+      window.open('https://www.portland.gov/ppd/noise/noise-concerns', '_blank');
+    }
+  } else {
+    // Running in browser — fall back to opening in tab
+    window.open('https://www.portland.gov/ppd/noise/noise-concerns', '_blank');
+  }
 }
 
 // ── Reference card ─────────────────────────────────────────────────────────
