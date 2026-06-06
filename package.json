@@ -5,10 +5,11 @@
     "build": "mkdir -p www && cp index.html manifest.json www/ && cp -r js css www/"
   },
   "dependencies": {
+    "@capacitor/browser": "^8.0.3",
     "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
-    "@capacitor/ios": "^8.4.0",
     "@capacitor/geolocation": "^8.0.0",
+    "@capacitor/ios": "^8.4.0",
     "@capacitor/status-bar": "^8.0.2"
   },
   "devDependencies": {

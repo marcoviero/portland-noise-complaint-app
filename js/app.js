@@ -28,22 +28,15 @@ const RESIDENT_OPTIONS = [
   { value: 'business',        label: 'Business operator in Portland' },
 ];
 
-// ── Capacitor WebForm plugin (native WKWebView for in-app form) ────────────
+// ── In-app browser (SFSafariViewController via @capacitor/browser) ─────────
 
-let WebFormPlugin = null;
+let CapBrowser = null;
 
-function getWebFormPlugin() {
-  if (!WebFormPlugin && window.Capacitor && window.Capacitor.registerPlugin) {
-    WebFormPlugin = window.Capacitor.registerPlugin('WebFormPlugin', {
-      web: {
-        openForm: () => {
-          window.open('https://www.portland.gov/ppd/noise/noise-concerns', '_blank');
-          return Promise.resolve();
-        }
-      }
-    });
+function getBrowser() {
+  if (!CapBrowser && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
+    CapBrowser = window.Capacitor.Plugins.Browser;
   }
-  return WebFormPlugin;
+  return CapBrowser;
 }
 
 // ── Profile persistence ────────────────────────────────────────────────────
@@ -582,50 +575,32 @@ function showProfileSaved() {
 // ── Submit complaint via native WKWebView ──────────────────────────────────
 
 async function submitComplaint() {
-  const plugin = getWebFormPlugin();
-  const loc = state.location;
-  const p = state.profile;
+  // Show reference card first so user has all info visible while filling the form
+  showRefCard();
+}
 
-  const data = {
-    firstName:       p.firstName || '',
-    lastName:        p.lastName  || '',
-    email:           p.email     || '',
-    phone:           p.phone     || '',
-    address:         p.address   || '',
-    locationAddress: loc ? (loc.address || '') : '',
-    locationLat:     loc ? loc.lat : 0,
-    locationLng:     loc ? loc.lng : 0,
-    count:           state.count,
-    complaintType:   state.complaintType,
-    equipment:       equipmentLabel(),
-    date:            state.complaintTime.toISOString().split('T')[0],
-    time:            state.complaintTime.getHours().toString().padStart(2,'0') + ':' +
-                     state.complaintTime.getMinutes().toString().padStart(2,'0'),
-    notes:           state.notes,
-    formal:          state.formal,
-    anonymous:       state.anonymous,
-  };
-
-  if (plugin) {
+async function openFormInApp() {
+  const browser = getBrowser();
+  const url = 'https://www.portland.gov/ppd/noise/noise-concerns';
+  // Close the reference card overlay
+  document.getElementById('ref-card-overlay').classList.remove('visible');
+  if (browser) {
     try {
-      await plugin.openForm({ data });
+      await browser.open({ url, presentationStyle: 'fullscreen' });
+      return;
     } catch (e) {
-      console.error('WebFormPlugin error:', e);
-      window.open('https://www.portland.gov/ppd/noise/noise-concerns', '_blank');
+      console.error('Browser plugin error:', e);
     }
-  } else {
-    // Running in browser — fall back to opening in tab
-    window.open('https://www.portland.gov/ppd/noise/noise-concerns', '_blank');
   }
+  // Fallback for browser testing
+  window.open(url, '_blank');
 }
 
 // ── Reference card ─────────────────────────────────────────────────────────
 
 function bindRefCard() {
   document.getElementById('copy-btn').addEventListener('click', copyComplaintText);
-  document.getElementById('open-form-btn').addEventListener('click', () => {
-    window.open('https://www.portland.gov/ppd/noise/noise-concerns', '_blank');
-  });
+  document.getElementById('open-form-btn').addEventListener('click', openFormInApp);
   document.getElementById('ref-card-overlay').addEventListener('click', e => {
     if (e.target === document.getElementById('ref-card-overlay')) {
       document.getElementById('ref-card-overlay').classList.remove('visible');
